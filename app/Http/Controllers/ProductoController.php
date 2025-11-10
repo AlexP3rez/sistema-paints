@@ -9,6 +9,7 @@ use App\Models\Color;
 use App\Models\Marca;
 use Illuminate\Http\Request;
 use App\Models\HistorialPrecio;
+use Illuminate\Support\Facades\Storage;
 
 class ProductoController extends Controller
 {
@@ -36,6 +37,7 @@ class ProductoController extends Controller
         'codigo' => 'required|string|max:20|unique:productos,codigo',
         'nombre' => 'required|string|max:100',
         'descripcion' => 'nullable|string',
+        'imagen' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // ← NUEVO
         'porcentaje_descuento' => 'nullable|numeric|min:0|max:100',
         'stock_minimo' => 'required|integer|min:0',
         'id_categoria' => 'required|exists:categorias_productos,id_categoria',
@@ -44,7 +46,6 @@ class ProductoController extends Controller
         'id_marca' => 'nullable|exists:marcas,id_marca',
         'tiempo_duracion_anos' => 'nullable|integer|min:0',
         'extension_cobertura_m2' => 'nullable|numeric|min:0',
-        // Agregar validación de precios
         'precio_venta' => 'required|numeric|min:0',
         'precio_compra' => 'nullable|numeric|min:0',
     ]);
@@ -52,14 +53,22 @@ class ProductoController extends Controller
     $validated['estado'] = true;
     $validated['porcentaje_descuento'] = $validated['porcentaje_descuento'] ?? 0;
 
+    // Manejar la imagen
+    if ($request->hasFile('imagen')) {
+        $imagen = $request->file('imagen');
+        $nombreImagen = time() . '_' . $imagen->getClientOriginalName();
+        $ruta = $imagen->storeAs('productos', $nombreImagen, 'public');
+        $validated['imagen'] = $ruta;
+    }
+
     // Crear el producto
     $producto = Producto::create($validated);
 
-    // Crear el precio inicial en historial_precios
+    // Crear el precio inicial
     HistorialPrecio::create([
         'id_producto' => $producto->id_producto,
         'precio_venta' => $request->precio_venta,
-        'precio_compra' => $request->precio_compra,
+        'precio_compra' => $request->precio_compra ?? 0,
         'fecha_inicio' => now(),
         'motivo_cambio' => 'Precio inicial',
         'estado_precio' => 'Activo'
@@ -94,6 +103,7 @@ class ProductoController extends Controller
         'codigo' => 'required|string|max:20|unique:productos,codigo,' . $producto->id_producto . ',id_producto',
         'nombre' => 'required|string|max:100',
         'descripcion' => 'nullable|string',
+        'imagen' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', 
         'porcentaje_descuento' => 'nullable|numeric|min:0|max:100',
         'stock_minimo' => 'required|integer|min:0',
         'id_categoria' => 'required|exists:categorias_productos,id_categoria',
@@ -106,51 +116,78 @@ class ProductoController extends Controller
         'precio_compra' => 'nullable|numeric|min:0',
     ]);
 
-    $validated['porcentaje_descuento'] = $validated['porcentaje_descuento'] ?? 0;
+    // Manejar la nueva imagen
+    if ($request->hasFile('imagen')) {
+        // Eliminar imagen anterior si existe
+        if ($producto->imagen && \Storage::disk('public')->exists($producto->imagen)) {
+            \Storage::disk('public')->delete($producto->imagen);
+        }
+        
+        $imagen = $request->file('imagen');
+        $nombreImagen = time() . '_' . $imagen->getClientOriginalName();
+        $ruta = $imagen->storeAs('productos', $nombreImagen, 'public');
+        $validated['imagen'] = $ruta;
+    }
 
-    // Actualizar el producto
-    $producto->update($validated);
+    // Actualizar campos del producto
+    $producto->update([
+        'codigo' => $validated['codigo'],
+        'nombre' => $validated['nombre'],
+        'descripcion' => $validated['descripcion'],
+        'imagen' => $validated['imagen'] ?? $producto->imagen,
+        'porcentaje_descuento' => $validated['porcentaje_descuento'] ?? 0,
+        'stock_minimo' => $validated['stock_minimo'],
+        'id_categoria' => $validated['id_categoria'],
+        'id_unidad' => $validated['id_unidad'],
+        'id_color' => $validated['id_color'],
+        'id_marca' => $validated['id_marca'],
+        'tiempo_duracion_anos' => $validated['tiempo_duracion_anos'],
+        'extension_cobertura_m2' => $validated['extension_cobertura_m2'],
+    ]);
 
-    // Manejar el precio
+    // Manejar el precio (código existente)
     $precioActual = HistorialPrecio::where('id_producto', $producto->id_producto)
                                    ->where('estado_precio', 'Activo')
                                    ->first();
     
+    $precioVenta = (float) $request->precio_venta;
+    $precioCompra = (float) ($request->precio_compra ?? 0);
+    
     if ($precioActual) {
-        // Verificar si el precio cambió
-        if ($precioActual->precio_venta != $request->precio_venta || 
-            $precioActual->precio_compra != $request->precio_compra) {
+        if ($precioActual->precio_venta != $precioVenta || 
+            $precioActual->precio_compra != $precioCompra) {
             
-            // Desactivar precio anterior
             $precioActual->update([
                 'estado_precio' => 'Inactivo',
                 'fecha_fin' => now()
             ]);
             
-            // Crear nuevo precio
             HistorialPrecio::create([
                 'id_producto' => $producto->id_producto,
-                'precio_venta' => $request->precio_venta,
-                'precio_compra' => $request->precio_compra ?? 0,
+                'precio_venta' => $precioVenta,
+                'precio_compra' => $precioCompra,
                 'fecha_inicio' => now(),
-                'motivo_cambio' => 'Actualización de precio',
+                'fecha_fin' => null,
+                'id_empleado_modifico' => null,
+                'motivo_cambio' => 'Actualización manual',
                 'estado_precio' => 'Activo'
             ]);
         }
     } else {
-        // Si no existe precio, crear uno nuevo
         HistorialPrecio::create([
             'id_producto' => $producto->id_producto,
-            'precio_venta' => $request->precio_venta,
-            'precio_compra' => $request->precio_compra ?? 0,
+            'precio_venta' => $precioVenta,
+            'precio_compra' => $precioCompra,
             'fecha_inicio' => now(),
+            'fecha_fin' => null,
+            'id_empleado_modifico' => null,
             'motivo_cambio' => 'Precio inicial',
             'estado_precio' => 'Activo'
         ]);
     }
 
     return redirect()->route('productos.index')
-        ->with('success', 'Producto actualizado exitosamente.');
+        ->with('success', 'Producto y precio actualizados exitosamente.');
 }
 
     public function destroy(Producto $producto)

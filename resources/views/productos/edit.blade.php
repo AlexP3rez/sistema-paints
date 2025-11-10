@@ -10,7 +10,7 @@
                 <h4 class="mb-0"><i class="bi bi-pencil"></i> Editar Producto</h4>
             </div>
             <div class="card-body">
-                <form action="{{ route('productos.update', $producto->id_producto) }}" method="POST">
+                <form action="{{ route('productos.update', $producto->id_producto) }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
                     
@@ -42,6 +42,44 @@
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
+
+                    <div class="mb-3">
+    <label for="imagen" class="form-label">
+        <i class="bi bi-image"></i> Imagen del Producto
+    </label>
+    
+    @if($producto->imagen)
+        <div class="mb-2">
+            <img src="{{ asset('storage/' . $producto->imagen) }}" 
+                 alt="{{ $producto->nombre }}" 
+                 class="img-thumbnail" 
+                 style="max-width: 200px;"
+                 id="current-image">
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="eliminar_imagen" name="eliminar_imagen" value="1">
+                <label class="form-check-label" for="eliminar_imagen">
+                    Eliminar imagen actual
+                </label>
+            </div>
+        </div>
+    @endif
+    
+    <input type="file" 
+           class="form-control @error('imagen') is-invalid @enderror" 
+           id="imagen" 
+           name="imagen" 
+           accept="image/jpeg,image/png,image/jpg,image/webp"
+           onchange="previewImage(event)">
+    @error('imagen')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+    <small class="text-muted">Formatos: JPG, PNG, WEBP. Máximo 2MB. Dejar vacío para mantener la imagen actual.</small>
+    
+    <!-- Vista previa de nueva imagen -->
+    <div class="mt-2">
+        <img id="preview" src="" alt="Vista previa" style="max-width: 200px; display: none;" class="img-thumbnail">
+    </div>
+</div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -203,4 +241,22 @@
         </div>
     </div>
 </div>
+@section('scripts')
+<script>
+function previewImage(event) {
+    const preview = document.getElementById('preview');
+    const currentImage = document.getElementById('current-image');
+    const file = event.target.files[0];
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            if (currentImage) currentImage.style.display = 'none';
+        }
+        reader.readAsDataURL(file);
+    }
+}
+</script>
 @endsection

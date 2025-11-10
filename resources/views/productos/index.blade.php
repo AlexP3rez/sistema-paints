@@ -17,6 +17,7 @@
                     <table class="table table-hover table-striped">
                         <thead class="table-dark">
     <tr>
+        <th>Imagen</th>
         <th>Código</th>
         <th>Nombre</th>
         <th>Categoría</th>
@@ -31,6 +32,16 @@
 <tbody>
     @forelse($productos as $producto)
         <tr>
+            <td> <!-- NUEVA CELDA -->
+                @if($producto->imagen)
+                    <img src="{{ asset('storage/' . $producto->imagen) }}" 
+                         alt="{{ $producto->nombre }}" 
+                         class="img-thumbnail" 
+                         style="width: 50px; height: 50px; object-fit: cover;">
+                @else
+                    <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
+                @endif
+            </td>
             <td><strong>{{ $producto->codigo }}</strong></td>
             <td>{{ $producto->nombre }}</td>
             <td>{{ $producto->categoria->nombre ?? 'N/A' }}</td>

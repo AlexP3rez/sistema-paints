@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\HistorialPrecio;
 
 class Producto extends Model
 {
@@ -18,6 +17,7 @@ class Producto extends Model
         'codigo',
         'nombre',
         'descripcion',
+        'imagen',
         'porcentaje_descuento',
         'stock_minimo',
         'id_categoria',

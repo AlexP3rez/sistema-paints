@@ -10,6 +10,23 @@
                 <h4 class="mb-0"><i class="bi bi-eye"></i> Detalle del Producto</h4>
             </div>
             <div class="card-body">
+                @if($producto->imagen)
+    <div class="text-center mb-4">
+        <img src="{{ asset('storage/' . $producto->imagen) }}" 
+             alt="{{ $producto->nombre }}" 
+             class="img-fluid rounded shadow" 
+             style="max-width: 400px;">
+    </div>
+@else
+    <div class="text-center mb-4">
+        <div class="bg-light rounded p-5" style="max-width: 400px; margin: 0 auto;">
+            <i class="bi bi-image" style="font-size: 4rem; color: #ccc;"></i>
+            <p class="text-muted mt-2">Sin imagen</p>
+        </div>
+    </div>
+@endif
+
+<hr class="my-4">
                 <div class="row mb-3">
                     <div class="col-md-4">
                         <strong>Código:</strong>
